@@ -1,2 +1,3 @@
-# utfs
-Micro TAR File System
+# UTFS
+
+Micro TAR File System ([reference](https://github.com/clisystems/utfs))
