@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test'
 import { Assert } from 'node:assert/strict'
 
+import { UTFS } from '@johntalton/utfs'
+
 describe('UTFS', () => {
 	describe('init', () => {
 		it('should ', () => {})
