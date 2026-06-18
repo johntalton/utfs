@@ -1,6 +1,13 @@
+/** biome-ignore-all lint/suspicious/noBitwiseOperators: used to set flags */
+/** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: it is complex */
+/** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: it does all the work */
+/** biome-ignore-all lint/style/useShorthandAssign: better readability */
+/** biome-ignore-all lint/performance/noAwaitInLoops: standard stuff */
 
-/** biome-ignore-all lint/style/useNumericSeparators: <explanation> */
-/** biome-ignore-all lint/suspicious/noBitwiseOperators: <explanation> */
+import { Common, HEADER_LENGTH } from './common.js'
+import { FLAGS_MASK, FLAGS_MASK_INVERSE, UTFS_FLAGS, UTFS_IDENTIFIER, UTFS_MAX_FILENAME, UTFS_MAX_FILES, UTFS_OPTIONS, UTFS_RESULT, UTFS_VERSION_V1 } from './defs.js'
+
+/** @import { Header, FileSystem, FSOptions, File, Flags, Options, Result } from './defs.js' */
 
 /**
  * @param {number} start
@@ -12,115 +19,6 @@ export function* range(start, end, step = 1) {
 		yield i
 	}
 }
-
-/** @typedef {number & { __brand: 'result' }} Result */
-
-/** @typedef {ArrayBufferView | ArrayBufferLike} Data */
-
-/** @typedef {number} Flags */
-/** @typedef {number} Options */
-
-/** @typedef {(address: number, length: number) => Data} SysRead */
-/** @typedef {(address: number, data: Data, length: number) => number} SysWrite */
-/**
- * @typedef {Object} FileSystem
- * @property {Array<File|undefined>} file_list
- * @property {boolean} structure_saved
- * @property {boolean} verbose
- * @property {number} baseAddress
- *
- * @property {Intl.Collator} collator
- * @property {TextEncoder} encoder
- * @property {TextDecoder} decoder
- */
-
-/**
- * @typedef {Object} File
- * @property {string} filename
- * @property {number} signature
- * @property {number} flags
- * @property {number} size
- * @property {number} size_loaded
- * @property {number} attr
- * @property {Data} data
- */
-
-/**
- * @typedef {Object} Header
- * @property {number} identifier
- * @property {number} version
- * @property {number} flags
- * @property {number} signature
- * @property {number} reserved
- * @property {number} size
- * @property {string} filename
- */
-
-export const UTFS_MAX_FILES = 5
-export const UTFS_MAX_FILENAME = 11
-
-export const UTFS_IDENTIFIER = 0x1984
-export const UTFS_VERSION_V1 = 1
-
-export const UTFS_RESULT = {
-	RES_OK:              result_from_number(0),
-	RES_FILE_NOT_FOUND:  result_from_number(1),
-	RES_READ_ERROR:      result_from_number(2),
-	RES_WRITE_ERROR:     result_from_number(3),
-	RES_PARAM_ERROR:     result_from_number(4),
-	RES_FILENAME_EXISTS: result_from_number(5),
-	RES_FILESYSTEM_FULL: result_from_number(6),
-	RES_INVALID_FS:      result_from_number(7)
-}
-
-export const UTFS_FLAGS = {
-		UTFS_NO_FLAGS:      0x0000,
-    UTFS_EXT_ATTR:      0x0001,
-    UTFS_LOAD_EXPLICIT: 0x0100,
-    UTFS_SAVE_EXPLICIT: 0x0200,
-}
-
-export const UTFS_OPTIONS = {
-	TFS_NO_OPT:       0x00,
-	UTFS_OPT_REPLACE: 0x01,
-}
-
-/**
- * @param {Result} result
- * @returns {string}
- */
-export function result_str(result) {
-	switch(result){
-		case UTFS_RESULT.RES_OK: return 'RES_OK'
-		case UTFS_RESULT.RES_FILE_NOT_FOUND: return 'RES_FILE_NOT_FOUND'
-		case UTFS_RESULT.RES_READ_ERROR: return 'RES_READ_ERROR'
-		case UTFS_RESULT.RES_WRITE_ERROR: return 'RES_WRITE_ERROR'
-		case UTFS_RESULT.RES_PARAM_ERROR: return 'RES_PARAM_ERROR'
-		case UTFS_RESULT.RES_FILENAME_EXISTS: return 'RES_FILENAME_EXISTS'
-		case UTFS_RESULT.RES_FILESYSTEM_FULL: return 'RES_FILESYSTEM_FULL'
-		case UTFS_RESULT.RES_INVALID_FS: return 'RES_INVALID_FS'
-		default:
-			return 'RES_UNKNOWN'
-	}
-}
-
-/**
- * @param {number} num
- * @returns {num is Result}
- */
-export function is_result(num) {
-	return (Number.isFinite(num) && num >= 0)
-}
-
-/**
- * @param {number} num
- * @returns {Result}
- */
-export function result_from_number(num) {
-	if(!is_result(num)) { throw new Error('invalid result number') }
-	return num
-}
-
 /**
  * @param {Header} header
  */
@@ -136,45 +34,30 @@ export function print_header(header)
 	console.log(` filename: '${header.filename}'`)
 }
 
-/**
- * @param {FileSystem} fs
- * @param {...any} args
- */
-export function log(fs, ...args) {
-	if(!fs.verbose) { return }
-	console.log(args)
-}
-
 export class UTFS {
 	/**
-	 * @param {FileSystem} fs
-	 * @param {boolean} verbose
-	 * @returns {Result}
+	 * @param {FSOptions|undefined} options
+	 * @returns {FileSystem}
 	 */
-	static init(fs, verbose) {
-		fs.file_list = []
-		fs.structure_saved = false
-		fs.verbose = verbose
-		fs.baseAddress = 0
+	static init(options) {
+		const { readFn, writeFn } = options ?? {}
+		if(readFn === undefined) { throw new Error('readFn undefined') }
+		if(writeFn === undefined) { throw new Error('writeFn undefined') }
 
-		fs.collator = new Intl.Collator('en')
-		fs.encoder = new TextEncoder()
-		fs.decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
+		return {
+			file_list: [],
+			structure_saved: false,
 
-		log(fs, `utfs_verbose: ${verbose}`)
-    // log(fs, `utfs_file_t size: ${FILE_HANDLE_SIZE} bytes`)
+			verbose: options?.verbose ?? false,
+			baseAddress: options?.baseAddress ?? 0,
 
-		return UTFS_RESULT.RES_OK
-	}
+			readFn,
+			writeFn,
 
-	/**
-	 * @param {FileSystem} fs
-	 * @param {number} baseAddress
-	 * @returns {Result}
-	 */
-	static baseaddress_set(fs, baseAddress) {
-		fs.baseAddress = baseAddress
-		return UTFS_RESULT.RES_OK
+			collator: options?.collator ?? new Intl.Collator('en'),
+			encoder: options?.encoder ?? new TextEncoder(),
+			decoder: options?.decoder ?? new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
+		}
 	}
 
 	/**
@@ -185,8 +68,7 @@ export class UTFS {
 	 * @returns {Result}
 	 */
 	static register(fs, file, flags, options) {
-
-		const filename = file.filename.slice(0, UTFS_MAX_FILENAME)
+		if(!UTFS.isValidFilename(fs, file.filename)) { throw new Error('invalid filename')}
 
 		file.flags = flags
 
@@ -194,24 +76,24 @@ export class UTFS {
 			const existing = fs.file_list[index]
 
 			if(existing === undefined) {
-				log(fs, `Found empty slot ${index}`)
+				if(fs.verbose) { console.log(`Found empty slot ${index}`) }
 				fs.file_list[index] = file
 				return UTFS_RESULT.RES_OK
 			}
 
-			if(fs.collator.compare(filename, existing.filename)) {
+			if(fs.collator.compare(file.filename, existing.filename) === 0) {
 				if((options & UTFS_OPTIONS.UTFS_OPT_REPLACE) === UTFS_OPTIONS.UTFS_OPT_REPLACE) {
-					log(fs, `Found ${existing.filename}=${filename}, replacing`)
+					if(fs.verbose) { console.log(`Found ${existing.filename}=${file.filename}, replacing`) }
 					fs.file_list[index] = file
 					return UTFS_RESULT.RES_OK
 				}
 
-				log(fs, `Found ${filename}, NOT overwriting`)
+				if(fs.verbose) { console.log(`Found ${file.filename}, NOT overwriting`) }
 				return UTFS_RESULT.RES_FILENAME_EXISTS
 			}
 		}
 
-		log(fs, 'Could not find slot')
+		if(fs.verbose) { console.log('Could not find slot') }
 		return UTFS_RESULT.RES_FILESYSTEM_FULL
 	}
 
@@ -221,14 +103,14 @@ export class UTFS {
 	 * @returns {Result}
 	 */
 	static unregister(fs, file) {
-		const filename = file.filename.slice(0, UTFS_MAX_FILENAME)
+		if(!UTFS.isValidFilename(fs, file.filename)) { throw new Error('invalid filename')}
 
 		for(const index of range(0, UTFS_MAX_FILES)) {
 			const existing = fs.file_list[index]
 			if(existing === undefined) { continue }
 
-			if(fs.collator.compare(filename, existing.filename)) {
-				log(fs, `Removed ${existing.filename} at position ${index}`)
+			if(fs.collator.compare(file.filename, existing.filename) === 0) {
+				if(fs.verbose) { console.log(`Removed ${existing.filename} at position ${index}`) }
 				fs.file_list[index] = undefined
 			}
 		}
@@ -238,31 +120,124 @@ export class UTFS {
 
 	/**
 	 * @param {FileSystem} fs
-	 * @returns {Result}
+	 * @returns {Promise<Result>}
 	 */
 	static async load(fs) {
 
 		let offset = fs.baseAddress
+		let hasOne = false
 
-		for(const index of range(0, UTFS_MAX_FILES)) {
+		for(const _index of range(0, UTFS_MAX_FILES)) {
+			const header = await Common.readHeader(fs, offset)
+			if(header.identifier !== UTFS_IDENTIFIER) { break }
+			if(header.version !== UTFS_VERSION_V1) { break }
 
-			const header = await Common.readHeader(offset)
+			hasOne = true
+
 			if(fs.verbose) { print_header(header) }
 
-
 			offset += HEADER_LENGTH
+			const dataOffset = offset
+			offset += header.size
+
+			//
+			const existingIndex = fs.file_list.findIndex(value =>
+				value === undefined ?
+					false :
+					fs.collator.compare(value.filename, header.filename) === 0)
+
+			if(existingIndex === -1) {
+				if(fs.verbose) { console.log(`Did not find file ${header.filename}`)}
+				continue
+			}
+
+			const existingFile = fs.file_list[existingIndex]
+
+			if(existingFile === undefined) { continue }
+
+			if(existingFile.data === undefined) {
+				if(fs.verbose) { console.log('Null data, skipping') }
+
+				existingFile.size_loaded = 0
+				existingFile.signature = header.signature
+				existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
+				continue
+			}
+
+			if((existingFile.flags & UTFS_FLAGS.UTFS_LOAD_EXPLICIT) === UTFS_FLAGS.UTFS_LOAD_EXPLICIT) {
+				if(fs.verbose) { console.log(`LOAD_EXPLICIT set, skipping read '${header.filename}'`) }
+				existingFile.size_loaded = 0
+				existingFile.signature = 0
+				existingFile.flags = existingFile.flags & FLAGS_MASK
+				continue
+			}
+
+			const dataSize = Math.min(existingFile.size, header.size)
+			const data = await Common.readData(fs, dataOffset, dataSize)
+			existingFile.data = data // todo copyInto
+			existingFile.size_loaded = dataSize
+			existingFile.signature = header.signature
+			existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
+		}
+
+		if(!hasOne) {
+			if(fs.verbose) { console.log('Error loading FS') }
+			return UTFS_RESULT.RES_INVALID_FS
 		}
 
 
-
+		return UTFS_RESULT.RES_OK
 	}
 
 	/**
 	 * @param {FileSystem} fs
-	 * @returns {Result}
+	 * @returns {Promise<Result>}
 	 */
 	static async save(fs) {
-		return UTFS_RESULT.RES_INVALID_FS
+
+		let offset = fs.baseAddress
+
+		for(const index of range(0, UTFS_MAX_FILES)) {
+			const file = fs.file_list[index]
+			if(file === undefined) { continue }
+
+			if(fs.verbose) { console.log(`Writing file ${file.filename} at pos ${offset}`)}
+
+			const written = await Common.writeHeader(fs, offset, {
+				identifier: UTFS_IDENTIFIER,
+				version: UTFS_VERSION_V1,
+
+				flags: file.flags & FLAGS_MASK_INVERSE,
+				signature: file.signature,
+				size: file.size,
+				filename: file.filename,
+
+				reserved: 0
+			})
+
+			if(written !== HEADER_LENGTH) {
+				if(fs.verbose) { console.log('Error writing header, fs ful') }
+				return UTFS_RESULT.RES_FILESYSTEM_FULL
+			}
+
+			offset += written
+			const dataOffset = offset
+			offset += file.size
+
+			if((file.flags & UTFS_FLAGS.UTFS_SAVE_EXPLICIT) === UTFS_FLAGS.UTFS_SAVE_EXPLICIT) {
+				if(fs.verbose) { console.log(`SAVE_EXPLICIT set, not writing '${file.filename}'`) }
+				continue
+			}
+
+			const writtenData = await Common.writeData(fs, dataOffset, file.data, file.size)
+			if(writtenData !== file.size) {
+				// biome-ignore lint/style/useCollapsedIf: just logging
+				if(fs.verbose) { console.log(`Error saving ${writtenData}!=${file.size}`) }
+			}
+		}
+
+		fs.structure_saved = true
+		return UTFS_RESULT.RES_OK
 	}
 
 	/**
@@ -284,75 +259,38 @@ export class UTFS {
 	}
 
 	/**
-	 * @param {File} file
-	 * @param {string} name
-	 * @param {Data} data
-	 * @param {number} size
-	 * @returns {Result}
-	 */
-	static set(file, name, data, size) {
-		UTFS.set_filename(file, name)
-		UTFS.set_data(file, data, size)
-		return UTFS_RESULT.RES_OK
-	}
-
-	/**
-	 * @param {File} file
-	 * @param {string} name
-	 * @returns {Result}
-	 */
-	static set_filename(file, name) {
-		file.filename = name.slice(0, UTFS_MAX_FILENAME)
-		return UTFS_RESULT.RES_OK
-	}
-
-	/**
-	 * @param {File} file
-	 * @param {Data} data
-	 * @param {number} size
-	 * @returns {Result}
-	 */
-	static set_data(file, data, size) {
-		file.data = data
-		file.size = size
-		return UTFS_RESULT.RES_OK
-	}
-
-	/**
-	 * @param {File} file
-	 * @returns {number}
-	 */
-	static file_signature(file) {
-		return file.signature
-	}
-
-	/**
-	 * @param {File} file
-	 * @param {number} signature
-	 * @returns {Result}
-	 */
-	static file_signature_set(file, signature) {
-		file.signature = signature
-		return UTFS_RESULT.RES_OK
-	}
-
-	/**
 	 * @param {FileSystem} fs
-	 * @returns {Result}
+	 * @returns {Generator<{ index: number } & Pick<File, 'filename'|'signature'|'flags'>>}
 	 */
-	static status(fs) {
-		let has = false
+	static *entries(fs) {
 		for(const index of range(0, UTFS_MAX_FILES)) {
 			const file = fs.file_list[index]
 			if(file === undefined) { continue }
 
-			has = true
-			const { filename, size } = file
-			console.log(`Entry ${index}: '${filename}' - ${size} `)
+			const {
+				filename,
+				signature,
+				flags
+			} = file
+
+			yield {
+				index, filename, signature, flags
+			}
 		}
+	}
 
-		if(!has) { console.log('No UTFS entries found') }
+	/**
+	 * @param {FileSystem} fs
+	 * @param {string} name
+	 */
+	static isValidFilename(fs, name) {
+		if(name === undefined) { return false }
+		if(typeof name !== 'string') { return false }
 
-		return UTFS_RESULT.RES_OK
+		const encodedName = fs.encoder.encode(name)
+		if(encodedName.byteLength <= 0) { return false }
+		if(encodedName.byteLength > UTFS_MAX_FILENAME) { return false }
+
+		return true
 	}
 }
