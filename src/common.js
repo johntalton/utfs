@@ -74,7 +74,7 @@ export class Common {
 	 * @param {Data} data
 	 * @param {number} length
 	 */
-	static writeData(fs, offset, data, length) {
+	static async writeData(fs, offset, data, length) {
 		return fs.writeFn(offset, data, length)
 	}
 
@@ -82,9 +82,27 @@ export class Common {
 	 * @param {FileSystem} fs
 	 * @param {number} offset
 	 * @param {number} length
+	 * @param {Data|undefined} [target]
 	 * @returns {Promise<Data>}
 	 */
-	static readData(fs, offset, length) {
-		return fs.readFn(offset, length)
+	static async readData(fs, offset, length, target = undefined) {
+		const futureBuffer = fs.readFn(offset, length)
+
+		if(target === undefined) { return futureBuffer }
+
+		const buffer = await futureBuffer
+
+		const target8 = ArrayBuffer.isView(target) ?
+			new Uint8Array(target.buffer, target.byteOffset, length) :
+			new Uint8Array(target, 0, length)
+
+		const buffer8 = ArrayBuffer.isView(buffer) ?
+			new Uint8Array(buffer.buffer, buffer.byteOffset, length) :
+			new Uint8Array(buffer, 0, length)
+
+		target8.set(buffer8)
+
+		return target
+
 	}
 }

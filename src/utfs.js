@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/suspicious/noBitwiseOperators: used to set flags */
+/** biome-ignore-all lint/style/noExcessiveLinesPerFile: <explanation> */
 /** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: it is complex */
 /** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: it does all the work */
 /** biome-ignore-all lint/style/useShorthandAssign: better readability */
@@ -99,7 +100,7 @@ export class UTFS {
 
 	/**
 	 * @param {FileSystem} fs
-	 * @param {File} file
+	 * @param {Pick<File, 'filename'>} file
 	 * @returns {Result}
 	 */
 	static unregister(fs, file) {
@@ -112,6 +113,7 @@ export class UTFS {
 			if(fs.collator.compare(file.filename, existing.filename) === 0) {
 				if(fs.verbose) { console.log(`Removed ${existing.filename} at position ${index}`) }
 				fs.file_list[index] = undefined
+				return UTFS_RESULT.RES_OK
 			}
 		}
 
@@ -173,8 +175,8 @@ export class UTFS {
 			}
 
 			const dataSize = Math.min(existingFile.size, header.size)
-			const data = await Common.readData(fs, dataOffset, dataSize)
-			existingFile.data = data // todo copyInto
+			const data = await Common.readData(fs, dataOffset, dataSize, existingFile.data)
+			// existingFile.data = data
 			existingFile.size_loaded = dataSize
 			existingFile.signature = header.signature
 			existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
@@ -216,7 +218,7 @@ export class UTFS {
 			})
 
 			if(written !== HEADER_LENGTH) {
-				if(fs.verbose) { console.log('Error writing header, fs ful') }
+				if(fs.verbose) { console.log('Error writing header, fs full') }
 				return UTFS_RESULT.RES_FILESYSTEM_FULL
 			}
 
@@ -242,20 +244,95 @@ export class UTFS {
 
 	/**
 	 * @param {FileSystem} fs
-	 * @param {File} file
-	 * @returns {Result}
+	 * @param {Pick<File, 'filename'>} file
+	 * @returns {Promise<Result>}
 	 */
-	static load_file(fs, file) {
-		return UTFS_RESULT.RES_INVALID_FS
+	static async load_file(fs, file) {
+
+		let offset = fs.baseAddress
+
+		for(const index of range(0, UTFS_MAX_FILES)) {
+			const header = await Common.readHeader(fs, offset)
+			if(header.identifier !== UTFS_IDENTIFIER) { break }
+			if(header.version !== UTFS_VERSION_V1) { break }
+
+			offset += HEADER_LENGTH
+			const dataOffset = offset
+			offset += header.size
+
+			const existingFile = fs.file_list[index]
+			if(existingFile === undefined) { continue }
+
+			if(fs.collator.compare(existingFile.filename, file.filename) !== 0) {
+				continue
+			}
+
+			if(fs.verbose) { console.log(`Found file to load, pos ${offset}`) }
+			if(fs.verbose) { print_header(header) }
+
+			if(existingFile.data === undefined) {
+				if(fs.verbose) { console.log('Null data, skipping') }
+				return UTFS_RESULT.RES_OK
+			}
+
+			const dataSize = Math.min(existingFile.size, header.size)
+			const data = await Common.readData(fs, dataOffset, dataSize, existingFile.data)
+			// existingFile.data = data
+			existingFile.size_loaded = dataSize
+			existingFile.signature = header.signature
+			existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
+
+			return UTFS_RESULT.RES_OK
+		}
+
+		return UTFS_RESULT.RES_FILE_NOT_FOUND
 	}
 
 	/**
 	 * @param {FileSystem} fs
-	 * @param {File} file
-	 * @returns {Result}
+	 * @param {Pick<File, 'filename'>} file
+	 * @returns {Promise<Result>}
 	 */
-	static save_file(fs, file) {
-		return UTFS_RESULT.RES_INVALID_FS
+	static async save_file(fs, file) {
+
+		if(fs.structure_saved === false) {
+			// todo - original code auto-saves entire structure
+			return UTFS_RESULT.RES_PARAM_ERROR
+		}
+
+		let offset = fs.baseAddress
+
+		for(const index of range(0, UTFS_MAX_FILES)) {
+			const existingFile = fs.file_list[index]
+			if(existingFile === undefined) { continue }
+
+			if(fs.collator.compare(existingFile.filename, file.filename) !== 0) {
+				offset += HEADER_LENGTH + existingFile.size
+				continue
+			}
+
+			if(fs.verbose) { console.log(`Writing file ${file.filename}, id ${index} at pos ${offset}`) }
+
+			const written = await Common.writeHeader(fs, offset, {
+				identifier: UTFS_IDENTIFIER,
+				version: UTFS_VERSION_V1,
+
+				flags: existingFile.flags & FLAGS_MASK_INVERSE,
+				signature: existingFile.signature,
+				size: existingFile.size,
+				filename: existingFile.filename,
+
+				reserved: 0
+			})
+
+			offset += HEADER_LENGTH
+
+			const writtenData = await Common.writeData(fs, offset, existingFile.data, existingFile.size)
+
+			return UTFS_RESULT.RES_OK
+		}
+
+		return UTFS_RESULT.RES_FILE_NOT_FOUND
 	}
 
 	/**
