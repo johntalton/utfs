@@ -658,7 +658,47 @@ describe('UTFS', () => {
 	})
 
 	describe('save_file', () => {
-		it('should ', () => {})
+		it('should reject when saving to empty', async () => {
+			const buffer = new Uint8Array(24 + 3)
+
+			const fs = UTFS.init({
+				readFn:  async () => new Uint8Array(0),
+				writeFn: async (offset, data, length) => {
+					const data8 = ArrayBuffer.isView(data) ?
+						new Uint8Array(data.buffer, data.byteOffset, length) :
+						new Uint8Array(data, 0, length)
+
+					buffer.set(data8, offset)
+					return length
+				}
+			})
+
+			const file = {
+				filename: 'test',
+				signature: 0,
+				size: 3,
+				size_loaded: 0,
+				data: Uint8Array.from([ 42, 77, 0 ]),
+				attr: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const registerStatus = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			assert.equal(registerStatus, UTFS_RESULT.RES_OK)
+
+			const saveStatus = await UTFS.save(fs)
+			assert.equal(saveStatus, UTFS_RESULT.RES_OK)
+
+			const status = await UTFS.save_file(fs, { filename: 'test' })
+			assert.equal(status, UTFS_RESULT.RES_OK)
+
+			assert.deepEqual(buffer, Uint8Array.from([
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+				0x74, 0x65, 0x73, 0x74, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				42, 77, 0
+			]))
+		})
 	})
 
 	describe('entires', () => {
