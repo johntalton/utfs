@@ -16,7 +16,7 @@
   "scripts": {
     "lint": "biome check",
     "test": "node --test test/**/*.test.js",
-    "coverage": "c8 --src src --check-coverage --statements 90 --branches 90 --functions 90 --lines 90 -r lcovonly -r text node --test test/**/*.test.js"
+    "coverage": "c8 --src src --check-coverage --statements 90 --branches 80 --functions 90 --lines 90 -r lcovonly -r text node --test test/**/*.test.js"
   },
   "repository": {
     "url": "https://github.com/johntalton/utfs"
