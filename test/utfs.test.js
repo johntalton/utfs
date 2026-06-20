@@ -927,4 +927,24 @@ describe('UTFS', () => {
 		})
 	})
 
+	describe('isValidFilename', () => {
+		it('should support all scenarios', () => {
+			const fs = UTFS.init({
+				readFn:  async () => new Uint8Array(0),
+				writeFn: async () => 0
+			})
+
+			assert.equal(UTFS.isValidFilename(fs, undefined), false)
+			assert.equal(UTFS.isValidFilename(fs, 42), false)
+			assert.equal(UTFS.isValidFilename(fs, { naem: 'foo' }), false)
+			assert.equal(UTFS.isValidFilename(fs, ''), false)
+			assert.equal(UTFS.isValidFilename(fs, 'abcdefghijkl'), false)
+			assert.equal(UTFS.isValidFilename(fs, '👩🏻‍❤️‍💋‍👩🏼'), false)
+
+			assert.equal(UTFS.isValidFilename(fs, 'abcdefghijk'), true)
+			assert.equal(UTFS.isValidFilename(fs, '🚀'), true)
+
+
+		})
+	})
 })

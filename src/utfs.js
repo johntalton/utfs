@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/suspicious/noBitwiseOperators: used to set flags */
-/** biome-ignore-all lint/style/noExcessiveLinesPerFile: <explanation> */
+/** biome-ignore-all lint/style/noExcessiveLinesPerFile: contains all the stuff */
 /** biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: it is complex */
 /** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: it does all the work */
 /** biome-ignore-all lint/style/useShorthandAssign: better readability */
@@ -239,6 +239,7 @@ export class UTFS {
 	 * @returns {Promise<Result>}
 	 */
 	static async load_file(fs, file) {
+		if(!UTFS.isValidFilename(fs, file.filename)) { throw new Error('invalid filename')}
 
 		let offset = fs.baseAddress
 
@@ -285,6 +286,7 @@ export class UTFS {
 	 * @returns {Promise<Result>}
 	 */
 	static async save_file(fs, file) {
+		if(!UTFS.isValidFilename(fs, file.filename)) { throw new Error('invalid filename')}
 
 		if(fs.structure_saved === false) {
 			// todo - original code auto-saves entire structure
@@ -316,9 +318,18 @@ export class UTFS {
 				reserved: 0
 			})
 
+			if(written !== HEADER_LENGTH) {
+				if(fs.verbose) { console.log('Error writing header') }
+				throw new Error('failed writing header')
+			}
+
 			offset += HEADER_LENGTH
 
 			const writtenData = await Common.writeData(fs, offset, existingFile.data, existingFile.size)
+			if(writtenData !== existingFile.size) {
+				if(fs.verbose) { console.log('Error writing data') }
+				throw new Error('failed writing data')
+			}
 
 			return UTFS_RESULT.RES_OK
 		}
