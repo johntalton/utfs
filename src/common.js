@@ -7,6 +7,7 @@ export const FILE_NAME_BUFFER_SIZE = UTFS_MAX_FILENAME + 1
 export const STATIC_HEADER_SIZE = 12
 export const HEADER_LENGTH = STATIC_HEADER_SIZE + FILE_NAME_BUFFER_SIZE
 
+export const DEFAULT_LITTLE_ENDIANNESS = true
 
 export class Common {
 	/**
@@ -18,7 +19,7 @@ export class Common {
 		const headerBuffer = new ArrayBuffer(HEADER_LENGTH)
 		const dv = new DataView(headerBuffer)
 
-		const littleEndian = false
+		const littleEndian = DEFAULT_LITTLE_ENDIANNESS
 		dv.setUint16(0, header.identifier, littleEndian)
 		dv.setUint8(2, header.version)
 		dv.setUint8(3, header.flags)
@@ -46,7 +47,7 @@ export class Common {
 			new DataView(ab.buffer, ab.byteOffset, ab.byteLength) :
 			new DataView(ab, 0, ab.byteLength)
 
-		const littleEndian = false
+		const littleEndian = DEFAULT_LITTLE_ENDIANNESS
 		const identifier = dv.getUint16(0, littleEndian)
 		const version = dv.getUint8(2)
 		const flags = dv.getUint8(3)
