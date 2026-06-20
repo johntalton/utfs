@@ -1,7 +1,15 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { UTFS, UTFS_FLAGS, UTFS_OPTIONS, UTFS_RESULT } from '@johntalton/utfs'
+import {
+	UTFS,
+	UTFS_FLAGS,
+	UTFS_MAX_FILES,
+	UTFS_OPTIONS,
+	UTFS_RESULT
+} from '@johntalton/utfs'
+
+import { range } from '../src/range.js'
 
 describe('UTFS', () => {
 	describe('init', () => {
@@ -162,6 +170,44 @@ describe('UTFS', () => {
 			const result2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
 			assert.equal(result2, UTFS_RESULT.RES_OK)
 
+		})
+
+		it('should return fs full on more then UTFS_MAX_FILES files', () => {
+
+			const fs = UTFS.init({
+				readFn:  async () => Uint8Array.from([]),
+				writeFn: async () => 0
+			})
+
+			for(const index of range(0, UTFS_MAX_FILES)) {
+				const file = {
+					filename: `test-${index}`,
+					signature: 0,
+					size: 0,
+					size_loaded: 0,
+					data: new Uint8Array(0),
+					attr: 0,
+					flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				}
+
+				const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+				assert.equal(result, UTFS_RESULT.RES_OK)
+			}
+
+			assert.equal(fs.file_list.length, 5)
+
+			const file = {
+					filename: `overflow`,
+					signature: 0,
+					size: 0,
+					size_loaded: 0,
+					data: new Uint8Array(0),
+					attr: 0,
+					flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				}
+
+				const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+				assert.equal(result, UTFS_RESULT.RES_FILESYSTEM_FULL)
 		})
 	})
 
@@ -587,7 +633,7 @@ describe('UTFS', () => {
 			const buffer = new Uint8Array((24 + 3) + (24 + 5) + (24 + 7))
 
 			const fs = UTFS.init({
-				verbose: true,
+				// verbose: true,
 				readFn:  async (offset, length) => {
 					return buffer.slice(offset, offset + length)
 				},
@@ -655,10 +701,67 @@ describe('UTFS', () => {
 			assert.equal(status, UTFS_RESULT.RES_OK)
 
 		})
+
+		it('should load from databuffer (truncated data)', async () => {
+			const buffer = Uint8Array.from([
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x31,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				  42,   77,    0,
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x01,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x32,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				   4,    2,    4,    2
+			])
+
+			const fs = UTFS.init({
+				// verbose: true,
+				readFn:  async (offset, length) => {
+					return buffer.slice(offset, offset + length)
+				},
+				writeFn: async (offset, data, length) => 0
+			})
+
+			const file1 = {
+				filename: 'test-1',
+				size: 3,
+				data: Uint8Array.from([ 0, 0, 0 ]),
+				attr: 0,
+				signature: 0,
+				size_loaded: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const status1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			assert.equal(status1, UTFS_RESULT.RES_OK)
+
+
+			const file2 = {
+				filename: 'test-2',
+				size: 2,
+				data: Uint8Array.from([ 0, 0 ]),
+				attr: 0,
+				signature: 0,
+				size_loaded: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const status2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			assert.equal(status2, UTFS_RESULT.RES_OK)
+
+
+			const loadStatus = await UTFS.load_file(fs, { filename: 'test-2' })
+			assert.equal(loadStatus, UTFS_RESULT.RES_OK)
+
+			assert.equal(fs.file_list[1]?.filename, 'test-2')
+			assert.equal(fs.file_list[1]?.size_loaded, 2)
+			assert.equal(fs.file_list[1]?.size, 2)
+			assert.deepEqual(fs.file_list[1].data, Uint8Array.from([ 4, 2 ]))
+		})
 	})
 
 	describe('save_file', () => {
-		it('should reject when saving to empty', async () => {
+		it('should save single file', async () => {
 			const buffer = new Uint8Array(24 + 3)
 
 			const fs = UTFS.init({
@@ -699,6 +802,78 @@ describe('UTFS', () => {
 				42, 77, 0
 			]))
 		})
+
+
+		it('should save single file when multiple are registered', async () => {
+			const buffer = new Uint8Array((24 + 3) + (24 + 4))
+
+			const fs = UTFS.init({
+				readFn:  async () => new Uint8Array(0),
+				writeFn: async (offset, data, length) => {
+					const data8 = ArrayBuffer.isView(data) ?
+						new Uint8Array(data.buffer, data.byteOffset, length) :
+						new Uint8Array(data, 0, length)
+
+					buffer.set(data8, offset)
+					return length
+				}
+			})
+
+			const file1 = {
+				filename: 'test-1',
+				signature: 0,
+				size: 3,
+				size_loaded: 0,
+				data: Uint8Array.from([ 42, 77, 0 ]),
+				attr: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const registerStatus1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			assert.equal(registerStatus1, UTFS_RESULT.RES_OK)
+
+			const file2 = {
+				filename: 'test-2',
+				signature: 0,
+				size: 2,
+				size_loaded: 0,
+				data: Uint8Array.from([ 1, 2 ]),
+				attr: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const registerStatus2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			assert.equal(registerStatus2, UTFS_RESULT.RES_OK)
+
+			const saveStatus = await UTFS.save(fs)
+			assert.equal(saveStatus, UTFS_RESULT.RES_OK)
+
+			const updatedFile2 = {
+				filename: 'test-2',
+				signature: 1,
+				size: 4,
+				size_loaded: 0,
+				data: Uint8Array.from([ 4, 2, 4, 2 ]),
+				attr: 0,
+				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+			}
+			const reregisterStatus = UTFS.register(fs, updatedFile2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
+
+			const status = await UTFS.save_file(fs, { filename: 'test-2' })
+			assert.equal(status, UTFS_RESULT.RES_OK)
+
+			assert.deepEqual(buffer, Uint8Array.from([
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x31,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				  42,   77,    0,
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x01,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x32,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				   4,    2,    4,    2
+			]))
+		})
+
 	})
 
 	describe('entires', () => {

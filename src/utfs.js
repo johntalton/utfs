@@ -7,19 +7,10 @@
 
 import { Common, HEADER_LENGTH } from './common.js'
 import { FLAGS_MASK, FLAGS_MASK_INVERSE, UTFS_FLAGS, UTFS_IDENTIFIER, UTFS_MAX_FILENAME, UTFS_MAX_FILES, UTFS_OPTIONS, UTFS_RESULT, UTFS_VERSION_V1 } from './defs.js'
+import { range } from './range.js'
 
 /** @import { Header, FileSystem, FSOptions, File, Flags, Options, Result } from './defs.js' */
 
-/**
- * @param {number} start
- * @param {number} end
- * @param {number} [step=1]
- */
-export function* range(start, end, step = 1) {
-	for(let i = start; i <= end; i += step) {
-		yield i
-	}
-}
 /**
  * @param {Header} header
  */
@@ -176,7 +167,7 @@ export class UTFS {
 
 			const dataSize = Math.min(existingFile.size, header.size)
 			const data = await Common.readData(fs, dataOffset, dataSize, existingFile.data)
-			// existingFile.data = data
+			existingFile.data = data
 			existingFile.size_loaded = dataSize
 			existingFile.signature = header.signature
 			existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
@@ -277,7 +268,7 @@ export class UTFS {
 
 			const dataSize = Math.min(existingFile.size, header.size)
 			const data = await Common.readData(fs, dataOffset, dataSize, existingFile.data)
-			// existingFile.data = data
+			existingFile.data = data
 			existingFile.size_loaded = dataSize
 			existingFile.signature = header.signature
 			existingFile.flags = (existingFile.flags & FLAGS_MASK) | header.flags
