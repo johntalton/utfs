@@ -85,7 +85,7 @@ export class Common {
 	 * @param {Data|undefined} [target]
 	 * @returns {Promise<Data>}
 	 */
-	static async readData(fs, offset, length, target = undefined) {
+	static async readData(fs, offset, length, target) {
 		const futureBuffer = fs.readFn(offset, length)
 
 		if(target === undefined) { return futureBuffer }

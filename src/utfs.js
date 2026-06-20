@@ -6,10 +6,20 @@
 /** biome-ignore-all lint/performance/noAwaitInLoops: standard stuff */
 
 import { Common, HEADER_LENGTH } from './common.js'
-import { FLAGS_MASK, FLAGS_MASK_INVERSE, UTFS_FLAGS, UTFS_IDENTIFIER, UTFS_MAX_FILENAME, UTFS_MAX_FILES, UTFS_OPTIONS, UTFS_RESULT, UTFS_VERSION_V1 } from './defs.js'
+import {
+	FLAGS_MASK,
+	FLAGS_MASK_INVERSE,
+	UTFS_FLAGS,
+	UTFS_IDENTIFIER,
+	UTFS_MAX_FILENAME,
+	UTFS_MAX_FILES,
+	UTFS_OPTIONS,
+	UTFS_RESULT,
+	UTFS_VERSION_V1
+} from './defs.js'
 import { range } from './range.js'
 
-/** @import { Header, FileSystem, FSOptions, File, Flags, Options, Result } from './defs.js' */
+/** @import { Header, FileSystem, FSOptions, RegistrationFile, File, Flags, Options, Result } from './defs.js' */
 
 /**
  * @param {Header} header
@@ -24,6 +34,25 @@ export function print_header(header)
 	console.log(` reserved: ${header.reserved}`)
 	console.log(` size: ${header.size}`)
 	console.log(` filename: '${header.filename}'`)
+}
+
+/**
+ * @param {FileSystem} fs
+ * @param {...any} args
+ */
+export function log(fs, ...args) {
+	if(!fs.verbose) { return }
+	console.log(...args)
+}
+
+/**
+ * @param {RegistrationFile} file
+ * @returns {file is File}
+ */
+export function isFile(file) {
+	if(file === undefined) { return false }
+
+	return true
 }
 
 export class UTFS {
@@ -54,38 +83,50 @@ export class UTFS {
 
 	/**
 	 * @param {FileSystem} fs
-	 * @param {File} file
-	 * @param {Flags} flags
-	 * @param {Options} options
+	 * @param {RegistrationFile} file
+	 * @param {Flags|undefined} [flags]
+	 * @param {Options|undefined} [options]
 	 * @returns {Result}
 	 */
 	static register(fs, file, flags, options) {
 		if(!UTFS.isValidFilename(fs, file.filename)) { throw new Error('invalid filename')}
 
-		file.flags = flags
+		if(file.size === undefined && file.data !== undefined) {
+			file.size = file.data.byteLength
+		}
+
+		file.signature ??= 0
+		file.size_loaded ??= 0
+		file.attr ??= 0
+		file.size ??= 0
+
+		if(!isFile(file)) { throw new Error('invalid file') }
+
+		file.flags = flags ?? UTFS_FLAGS.UTFS_NO_FLAGS
+		const effectiveOptions = options ?? UTFS_OPTIONS.UTFS_NO_OPT
 
 		for(const index of range(0, UTFS_MAX_FILES)) {
 			const existing = fs.file_list[index]
 
 			if(existing === undefined) {
-				if(fs.verbose) { console.log(`Found empty slot ${index}`) }
+				log(fs, `Found empty slot ${index}`)
 				fs.file_list[index] = file
 				return UTFS_RESULT.RES_OK
 			}
 
 			if(fs.collator.compare(file.filename, existing.filename) === 0) {
-				if((options & UTFS_OPTIONS.UTFS_OPT_REPLACE) === UTFS_OPTIONS.UTFS_OPT_REPLACE) {
-					if(fs.verbose) { console.log(`Found ${existing.filename}=${file.filename}, replacing`) }
+				if((effectiveOptions & UTFS_OPTIONS.UTFS_OPT_REPLACE) === UTFS_OPTIONS.UTFS_OPT_REPLACE) {
+					log(fs, `Found ${existing.filename}=${file.filename}, replacing`)
 					fs.file_list[index] = file
 					return UTFS_RESULT.RES_OK
 				}
 
-				if(fs.verbose) { console.log(`Found ${file.filename}, NOT overwriting`) }
+				log(fs, `Found ${file.filename}, NOT overwriting`)
 				return UTFS_RESULT.RES_FILENAME_EXISTS
 			}
 		}
 
-		if(fs.verbose) { console.log('Could not find slot') }
+		log(fs, 'Could not find slot')
 		return UTFS_RESULT.RES_FILESYSTEM_FULL
 	}
 
@@ -102,7 +143,7 @@ export class UTFS {
 			if(existing === undefined) { continue }
 
 			if(fs.collator.compare(file.filename, existing.filename) === 0) {
-				if(fs.verbose) { console.log(`Removed ${existing.filename} at position ${index}`) }
+				log(fs, `Removed ${existing.filename} at position ${index}`)
 				fs.file_list[index] = undefined
 				return UTFS_RESULT.RES_OK
 			}
@@ -134,22 +175,19 @@ export class UTFS {
 			offset += header.size
 
 			//
-			const existingIndex = fs.file_list.findIndex(value =>
+			const existingFile = fs.file_list.find(value =>
 				value === undefined ?
 					false :
-					fs.collator.compare(value.filename, header.filename) === 0)
+					fs.collator.compare(value.filename, header.filename) === 0
+			)
 
-			if(existingIndex === -1) {
-				if(fs.verbose) { console.log(`Did not find file ${header.filename}`)}
+			if(existingFile === undefined) {
+				log(fs, `Did not find file ${header.filename}`)
 				continue
 			}
 
-			const existingFile = fs.file_list[existingIndex]
-
-			if(existingFile === undefined) { continue }
-
 			if(existingFile.data === undefined) {
-				if(fs.verbose) { console.log('Null data, skipping') }
+				log(fs, 'Null data, skipping')
 
 				existingFile.size_loaded = 0
 				existingFile.signature = header.signature
@@ -158,7 +196,7 @@ export class UTFS {
 			}
 
 			if((existingFile.flags & UTFS_FLAGS.UTFS_LOAD_EXPLICIT) === UTFS_FLAGS.UTFS_LOAD_EXPLICIT) {
-				if(fs.verbose) { console.log(`LOAD_EXPLICIT set, skipping read '${header.filename}'`) }
+				log(fs, `LOAD_EXPLICIT set, skipping read '${header.filename}'`)
 				existingFile.size_loaded = 0
 				existingFile.signature = 0
 				existingFile.flags = existingFile.flags & FLAGS_MASK
@@ -174,7 +212,7 @@ export class UTFS {
 		}
 
 		if(!hasOne) {
-			if(fs.verbose) { console.log('Error loading FS') }
+			log(fs, 'Error loading FS')
 			return UTFS_RESULT.RES_INVALID_FS
 		}
 
@@ -194,7 +232,7 @@ export class UTFS {
 			const file = fs.file_list[index]
 			if(file === undefined) { continue }
 
-			if(fs.verbose) { console.log(`Writing file ${file.filename} at pos ${offset}`)}
+			log(fs, `Writing file ${file.filename} at pos ${offset}`)
 
 			const written = await Common.writeHeader(fs, offset, {
 				identifier: UTFS_IDENTIFIER,
@@ -209,7 +247,7 @@ export class UTFS {
 			})
 
 			if(written !== HEADER_LENGTH) {
-				if(fs.verbose) { console.log('Error writing header, fs full') }
+				log(fs, 'Error writing header, fs full')
 				return UTFS_RESULT.RES_FILESYSTEM_FULL
 			}
 
@@ -218,14 +256,14 @@ export class UTFS {
 			offset += file.size
 
 			if((file.flags & UTFS_FLAGS.UTFS_SAVE_EXPLICIT) === UTFS_FLAGS.UTFS_SAVE_EXPLICIT) {
-				if(fs.verbose) { console.log(`SAVE_EXPLICIT set, not writing '${file.filename}'`) }
+				log(fs, `SAVE_EXPLICIT set, not writing '${file.filename}'`)
 				continue
 			}
 
 			const writtenData = await Common.writeData(fs, dataOffset, file.data, file.size)
 			if(writtenData !== file.size) {
-				// biome-ignore lint/style/useCollapsedIf: just logging
-				if(fs.verbose) { console.log(`Error saving ${writtenData}!=${file.size}`) }
+				log(fs, `Error saving ${writtenData}!=${file.size}`)
+				// todo throw error or return partial save error here
 			}
 		}
 
@@ -259,11 +297,11 @@ export class UTFS {
 				continue
 			}
 
-			if(fs.verbose) { console.log(`Found file to load, pos ${offset}`) }
+			log(fs, `Found file to load, pos ${offset}`)
 			if(fs.verbose) { print_header(header) }
 
 			if(existingFile.data === undefined) {
-				if(fs.verbose) { console.log('Null data, skipping') }
+				log(fs, 'Null data, skipping')
 				return UTFS_RESULT.RES_OK
 			}
 
@@ -304,7 +342,7 @@ export class UTFS {
 				continue
 			}
 
-			if(fs.verbose) { console.log(`Writing file ${file.filename}, id ${index} at pos ${offset}`) }
+			log(fs, `Writing file ${file.filename}, id ${index} at pos ${offset}`)
 
 			const written = await Common.writeHeader(fs, offset, {
 				identifier: UTFS_IDENTIFIER,
@@ -319,7 +357,7 @@ export class UTFS {
 			})
 
 			if(written !== HEADER_LENGTH) {
-				if(fs.verbose) { console.log('Error writing header') }
+				log(fs, 'Error writing header')
 				throw new Error('failed writing header')
 			}
 
@@ -327,7 +365,7 @@ export class UTFS {
 
 			const writtenData = await Common.writeData(fs, offset, existingFile.data, existingFile.size)
 			if(writtenData !== existingFile.size) {
-				if(fs.verbose) { console.log('Error writing data') }
+				log(fs, 'Error writing data')
 				throw new Error('failed writing data')
 			}
 

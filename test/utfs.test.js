@@ -25,8 +25,9 @@ describe('UTFS', () => {
 		it('should throw on missing readFn', () => {
 			assert.throws(() => {
 				const fs = UTFS.init({
+					// @ts-ignore
 					readFn: undefined,
-					writeFn: () => 0
+					writeFn: async () => 0
 				})
 			}, {
 				name: 'Error',
@@ -38,6 +39,7 @@ describe('UTFS', () => {
 			assert.throws(() => {
 				const fs = UTFS.init({
 					readFn: async () => Uint8Array.from([]),
+					// @ts-ignore
 					writeFn: undefined
 				})
 			}, {
@@ -65,15 +67,9 @@ describe('UTFS', () => {
 			})
 
 			const file = {
-				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: undefined,
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				filename: 'test'
 			}
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 			assert.equal(result, UTFS_RESULT.RES_OK)
 
 			assert.equal(fs.structure_saved, false)
@@ -88,17 +84,11 @@ describe('UTFS', () => {
 			})
 
 			const file = {
-				filename: '👩🏻‍❤️‍💋‍👩🏼', // as encoded more then 11 chars
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: undefined,
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				filename: '👩🏻‍❤️‍💋‍👩🏼' // as encoded more then 11 chars
 			}
 
 			assert.throws(() => {
-				UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+				UTFS.register(fs, file)
 			}, {
 				name: 'Error',
 				message: 'invalid filename'
@@ -113,28 +103,20 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 			assert.equal(result, UTFS_RESULT.RES_OK)
 
 			const file2 = {
 				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
-			const result2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result2 = UTFS.register(fs, file2)
 			assert.equal(result2, UTFS_RESULT.RES_FILENAME_EXISTS)
 		})
 
@@ -146,25 +128,17 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 			assert.equal(result, UTFS_RESULT.RES_OK)
 
 			const file2 = {
 				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
 			const result2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
@@ -182,15 +156,11 @@ describe('UTFS', () => {
 			for(const index of range(0, UTFS_MAX_FILES)) {
 				const file = {
 					filename: `test-${index}`,
-					signature: 0,
-					size: 0,
-					size_loaded: 0,
+					// size: 0,
 					data: new Uint8Array(0),
-					attr: 0,
-					flags: UTFS_FLAGS.UTFS_NO_FLAGS
 				}
 
-				const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+				const result = UTFS.register(fs, file)
 				assert.equal(result, UTFS_RESULT.RES_OK)
 			}
 
@@ -198,15 +168,11 @@ describe('UTFS', () => {
 
 			const file = {
 					filename: `overflow`,
-					signature: 0,
-					size: 0,
-					size_loaded: 0,
-					data: new Uint8Array(0),
-					attr: 0,
-					flags: UTFS_FLAGS.UTFS_NO_FLAGS
+					// size: 0,
+					data: new Uint8Array(0)
 				}
 
-				const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+				const result = UTFS.register(fs, file)
 				assert.equal(result, UTFS_RESULT.RES_FILESYSTEM_FULL)
 		})
 	})
@@ -226,22 +192,33 @@ describe('UTFS', () => {
 			assert.equal(result, UTFS_RESULT.RES_FILE_NOT_FOUND)
 		})
 
-		it('should register and unregister for empty list', () => {
+		it('should throw when unregister filename is invalid', () => {
 			const fs = UTFS.init({
-				readFn:  () => Uint8Array.from([]),
-				writeFn: () => 0
+				readFn:  async () => Uint8Array.from([]),
+				writeFn: async () => 0
 			})
 
 			const file = {
-				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: undefined,
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				filename: '👩🏻‍❤️‍💋‍👩🏼'
 			}
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+
+			assert.throws(() => UTFS.unregister(fs, file), {
+				name: 'Error',
+				message: 'invalid filename'
+			})
+
+		})
+
+		it('should register and unregister for empty list', () => {
+			const fs = UTFS.init({
+				readFn:  async () => Uint8Array.from([]),
+				writeFn: async () => 0
+			})
+
+			const file = {
+				filename: 'test'
+			}
+			const result = UTFS.register(fs, file)
 			assert.equal(result, UTFS_RESULT.RES_OK)
 
 
@@ -260,25 +237,17 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test-1',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 			assert.equal(result, UTFS_RESULT.RES_OK)
 
 			const file2 = {
 				filename: 'test-2',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 0,
+				data: new Uint8Array(0)
 			}
 
 			const result2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
@@ -286,12 +255,7 @@ describe('UTFS', () => {
 
 			const file3 = {
 				filename: 'test-3',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: new Uint8Array(0),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				data: new Uint8Array(0)
 			}
 
 			const result3 = UTFS.register(fs, file3, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
@@ -374,17 +338,9 @@ describe('UTFS', () => {
 			})
 
 			const file = {
-				filename: 'test',
-				signature: 0,
-				size: 0,
-				size_loaded: 0,
-				data: undefined,
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				filename: 'test'
 			}
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
-
-			// console.log(fs.file_list)
+			const result = UTFS.register(fs, file)
 
 			const status = await UTFS.load(fs)
 			assert.equal(status, UTFS_RESULT.RES_OK)
@@ -421,14 +377,10 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
+				// size: 3,
 				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
 			}
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 
 			// console.log(fs.file_list)
 
@@ -468,14 +420,10 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const result = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const result = UTFS.register(fs, file)
 
 			// console.log(fs.file_list)
 
@@ -485,6 +433,53 @@ describe('UTFS', () => {
 			assert.equal(fs.file_list[0]?.size_loaded, 3)
 			assert.equal(fs.file_list[0]?.signature, 0)
 			assert.deepEqual(fs.file_list[0].data, Uint8Array.from([ 42, 77, 0 ]))
+		})
+
+		it('should load registered file with gaps in listing', async () => {
+			const buffer = Uint8Array.from([
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x03,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x31,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				  42,   77,    0,
+				0x19, 0x84, 0x01, 0x00, 0x00, 0x01,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x04,
+				0x74, 0x65, 0x73, 0x74, 0x2d, 0x32,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				   4,    2,    4,    2,
+				0,0,0,0,0,0,0,0,0,0,0,0,
+				0,0,0,0,0,0,0,0,0,0,0,0,
+			])
+
+			const fs = UTFS.init({
+				readFn: async (offset, length) => buffer.slice(offset, offset + length),
+				writeFn: async () => 0
+			})
+
+			const file1 = {
+				filename: 'test-1',
+				// size: 0,
+				data: Uint8Array.from([])
+			}
+			const fileJunk = {
+				filename: 'junk',
+				// size: 0,
+				data: Uint8Array.from([])
+			}
+			const file2 = {
+				filename: 'test-2',
+				// size: 0,
+				data: Uint8Array.from([])
+			}
+
+			UTFS.register(fs, file1)
+			UTFS.register(fs, fileJunk)
+			UTFS.register(fs, file2)
+			UTFS.unregister(fs, { filename: 'junk' })
+
+			const status = await UTFS.load(fs)
+			assert.equal(status, UTFS_RESULT.RES_OK)
+
 		})
 	})
 
@@ -523,14 +518,10 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const registerStatus = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerStatus = UTFS.register(fs, file)
 			assert.equal(registerStatus, UTFS_RESULT.RES_OK)
 
 			const status = await UTFS.save(fs)
@@ -580,40 +571,28 @@ describe('UTFS', () => {
 
 			const file1 = {
 				filename: 'test-1',
-				size: 3,
-				data: Uint8Array.from([ 1,2,3 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 1,2,3 ])
 			}
-			const status1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status1 = UTFS.register(fs, file1)
 			assert.equal(status1, UTFS_RESULT.RES_OK)
 
 
 			const file2 = {
 				filename: 'test-2',
-				size: 5,
-				data: Uint8Array.from([ 5,5,5,5,5 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 5,
+				data: Uint8Array.from([ 5,5,5,5,5 ])
 			}
-			const status2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status2 = UTFS.register(fs, file2)
 			assert.equal(status2, UTFS_RESULT.RES_OK)
 
 
 			const file3 = {
 				filename: 'test-3',
-				size: 7,
-				data: Uint8Array.from([ 77, 7, 77, 7, 77, 7, 77 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 7,
+				data: Uint8Array.from([ 77, 7, 77, 7, 77, 7, 77 ])
 			}
-			const status3 = UTFS.register(fs, file3, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status3 = UTFS.register(fs, file3)
 			assert.equal(status3, UTFS_RESULT.RES_OK)
 
 			const saveStatus = await UTFS.save(fs)
@@ -649,45 +628,33 @@ describe('UTFS', () => {
 
 			const file1 = {
 				filename: 'test-1',
-				size: 3,
-				data: Uint8Array.from([ 1,2,3 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 1,2,3 ])
 			}
-			const status1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status1 = UTFS.register(fs, file1)
 			assert.equal(status1, UTFS_RESULT.RES_OK)
 
 
 			const file2 = {
 				filename: 'test-2',
-				size: 5,
-				data: Uint8Array.from([ 5,5,5,5,5 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 5,
+				data: Uint8Array.from([ 5,5,5,5,5 ])
 			}
-			const status2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status2 = UTFS.register(fs, file2)
 			assert.equal(status2, UTFS_RESULT.RES_OK)
 
 
 			const file3 = {
 				filename: 'test-3',
-				size: 7,
-				data: Uint8Array.from([ 77, 7, 77, 7, 77, 7, 77 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 7,
+				data: Uint8Array.from([ 77, 7, 77, 7, 77, 7, 77 ])
 			}
-			const status3 = UTFS.register(fs, file3, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status3 = UTFS.register(fs, file3)
 			assert.equal(status3, UTFS_RESULT.RES_OK)
 
 
 			const unregisterStatus = UTFS.unregister(fs, { filename: 'test-2' })
-
+			assert.equal(unregisterStatus, UTFS_RESULT.RES_OK)
 
 			const saveStatus = await UTFS.save(fs)
 			assert.equal(saveStatus, UTFS_RESULT.RES_OK)
@@ -726,27 +693,19 @@ describe('UTFS', () => {
 
 			const file1 = {
 				filename: 'test-1',
-				size: 3,
-				data: Uint8Array.from([ 0, 0, 0 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 0, 0, 0 ])
 			}
-			const status1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status1 = UTFS.register(fs, file1)
 			assert.equal(status1, UTFS_RESULT.RES_OK)
 
 
 			const file2 = {
 				filename: 'test-2',
-				size: 2,
-				data: Uint8Array.from([ 0, 0 ]),
-				attr: 0,
-				signature: 0,
-				size_loaded: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 2,
+				data: Uint8Array.from([ 0, 0 ])
 			}
-			const status2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const status2 = UTFS.register(fs, file2)
 			assert.equal(status2, UTFS_RESULT.RES_OK)
 
 
@@ -778,14 +737,10 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const registerStatus = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerStatus = UTFS.register(fs, file)
 			assert.equal(registerStatus, UTFS_RESULT.RES_OK)
 
 			const saveStatus = await UTFS.save(fs)
@@ -821,26 +776,18 @@ describe('UTFS', () => {
 
 			const file1 = {
 				filename: 'test-1',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const registerStatus1 = UTFS.register(fs, file1, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerStatus1 = UTFS.register(fs, file1)
 			assert.equal(registerStatus1, UTFS_RESULT.RES_OK)
 
 			const file2 = {
 				filename: 'test-2',
-				signature: 0,
-				size: 2,
-				size_loaded: 0,
-				data: Uint8Array.from([ 1, 2 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 2,
+				data: Uint8Array.from([ 1, 2 ])
 			}
-			const registerStatus2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerStatus2 = UTFS.register(fs, file2)
 			assert.equal(registerStatus2, UTFS_RESULT.RES_OK)
 
 			const saveStatus = await UTFS.save(fs)
@@ -849,13 +796,11 @@ describe('UTFS', () => {
 			const updatedFile2 = {
 				filename: 'test-2',
 				signature: 1,
-				size: 4,
-				size_loaded: 0,
-				data: Uint8Array.from([ 4, 2, 4, 2 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 4,
+				data: Uint8Array.from([ 4, 2, 4, 2 ])
 			}
 			const reregisterStatus = UTFS.register(fs, updatedFile2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_OPT_REPLACE)
+			assert.equal(registerStatus1, UTFS_RESULT.RES_OK)
 
 			const status = await UTFS.save_file(fs, { filename: 'test-2' })
 			assert.equal(status, UTFS_RESULT.RES_OK)
@@ -896,26 +841,18 @@ describe('UTFS', () => {
 
 			const file = {
 				filename: 'test-1',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const registerResult = UTFS.register(fs, file, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerResult = UTFS.register(fs, file)
 			assert.equal(registerResult, UTFS_RESULT.RES_OK)
 
 			const file2 = {
 				filename: 'test-2',
-				signature: 0,
-				size: 3,
-				size_loaded: 0,
-				data: Uint8Array.from([ 42, 77, 0 ]),
-				attr: 0,
-				flags: UTFS_FLAGS.UTFS_NO_FLAGS
+				// size: 3,
+				data: Uint8Array.from([ 42, 77, 0 ])
 			}
-			const registerResult2 = UTFS.register(fs, file2, UTFS_FLAGS.UTFS_NO_FLAGS, UTFS_OPTIONS.UTFS_NO_OPT)
+			const registerResult2 = UTFS.register(fs, file2)
 			assert.equal(registerResult2, UTFS_RESULT.RES_OK)
 
 
@@ -934,9 +871,12 @@ describe('UTFS', () => {
 				writeFn: async () => 0
 			})
 
+			// @ts-ignore
 			assert.equal(UTFS.isValidFilename(fs, undefined), false)
+			// @ts-ignore
 			assert.equal(UTFS.isValidFilename(fs, 42), false)
-			assert.equal(UTFS.isValidFilename(fs, { naem: 'foo' }), false)
+			// @ts-ignore
+			assert.equal(UTFS.isValidFilename(fs, { name: 'foo' }), false)
 			assert.equal(UTFS.isValidFilename(fs, ''), false)
 			assert.equal(UTFS.isValidFilename(fs, 'abcdefghijkl'), false)
 			assert.equal(UTFS.isValidFilename(fs, '👩🏻‍❤️‍💋‍👩🏼'), false)

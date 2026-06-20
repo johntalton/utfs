@@ -6,7 +6,7 @@
     "module": "nodenext",
     "lib": ["ESNext", "DOM", "DOM.AsyncIterable"],
     "moduleResolution": "nodenext",
-    "types": [ "node" ],
+    "types": [  ],
 
     "noEmitOnError": false,
 

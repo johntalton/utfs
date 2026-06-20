@@ -40,6 +40,8 @@
  * @property {Data} data
  */
 
+/** @typedef {Pick<File, 'filename'> & Partial<Omit<File, 'filename'>>} RegistrationFile */
+
 /**
  * @typedef {Object} Header
  * @property {number} identifier
